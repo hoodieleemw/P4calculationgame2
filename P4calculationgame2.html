@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chiikawa 數學冒險：策略引導版</title>
+    <style>
+        :root { --pink: #ff80ab; --blue: #4fc3f7; --purple: #b39ddb; --green: #81c784; --gold: #ffd54f; }
+        * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
+        body { margin: 0; background: #fdf2f4; font-family: system-ui, sans-serif; height: 100vh; display: flex; overflow: hidden; }
+
+        /* 左側佈局 */
+        .left-container { width: 52%; display: flex; flex-direction: column; padding: 15px; gap: 10px; border-right: 2px solid rgba(0,0,0,0.05); }
+
+        /* 戰鬥界面 */
+        .battle-view { 
+            height: 35%; background: white; border-radius: 35px; display: flex; 
+            justify-content: space-around; align-items: center; box-shadow: 0 10px 20px rgba(0,0,0,0.05); 
+            position: relative; overflow: hidden;
+        }
+        .entity { text-align: center; width: 130px; }
+        .entity-icon { font-size: 65px; display: block; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.1)); }
+        .bar-label { font-size: 0.65rem; font-weight: bold; margin-bottom: 2px; display: flex; justify-content: space-between; color: #666; }
+        .bar-outer { width: 100%; height: 10px; background: #eee; border-radius: 5px; overflow: hidden; margin-bottom: 5px; }
+        .bar-inner { height: 100%; width: 100%; transition: width 0.5s; }
+
+        /* 控制區 */
+        .control-view { flex: 1; background: white; border-radius: 35px; padding: 15px; display: flex; flex-direction: column; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+        .skill-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
+        .skill-btn { border: 2px solid #f5f5f5; border-radius: 12px; padding: 8px 2px; text-align: center; background: #fff; cursor: pointer; }
+        .skill-btn b { display: block; font-size: 0.75rem; color: #333; }
+        .skill-btn span { font-size: 0.6rem; color: #aaa; }
+        .skill-btn.active { border-color: var(--purple); background: #f3e5f5; }
+
+        /* 題目區 */
+        .quiz-container { background: #fafafa; border-radius: 20px; padding: 12px; margin-bottom: 5px; position: relative; }
+        #q-text { font-size: 1.7rem; font-weight: 800; color: #2c3e50; min-height: 2em; display: flex; align-items: center; justify-content: center; }
+        
+        /* 免費攻略按鈕與文字 */
+        .scaffold-box { min-height: 1.2em; margin-top: 5px; text-align: center; }
+        #btn-scaffold { background: #eee; border: none; padding: 4px 12px; border-radius: 10px; font-size: 0.75rem; color: #666; cursor: pointer; font-weight: bold; }
+        #scaffold-text { font-size: 0.8rem; color: #888; font-weight: bold; display: none; }
+        
+        #u-input { font-size: 2.5rem; color: var(--blue); font-weight: 900; text-align: center; border-bottom: 4px solid #f0f0f0; margin: 5px 0; }
+        #hint-text { color: var(--purple); font-size: 0.85rem; font-weight: bold; height: 1em; text-align: center; }
+
+        .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; flex: 1; }
+        .key { border: none; background: #f9f9f9; font-size: 1.3rem; font-weight: bold; border-radius: 15px; box-shadow: 0 4px #e0e0e0; cursor: pointer; }
+        .key-enter { background: var(--blue); color: white; grid-column: span 2; box-shadow: 0 4px #0288d1; }
+
+        /* 右側算草 */
+        .right-scratch { flex: 1; margin: 15px; background: white; border-radius: 35px; border: 2px solid rgba(0,0,0,0.05); position: relative; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+        #scratch-pad { width: 100%; height: 100%; border-radius: 35px; background-image: radial-gradient(#eee 1.5px, transparent 1.5px); background-size: 30px 30px; }
+        .scratch-clear { position: absolute; bottom: 15px; right: 15px; background: #444; color: white; border: none; padding: 10px 20px; border-radius: 12px; font-weight: bold; }
+
+        #reward-modal { position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.95); z-index:500; display:none; flex-direction:column; align-items:center; justify-content:center; }
+        .reward-btn { width: 80%; padding: 20px; margin: 10px; border-radius: 20px; border: none; font-size: 1.2rem; font-weight: bold; color: white; }
+
+        .shake { animation: shake 0.4s; }
+        @keyframes shake { 0%, 100% {transform:translateX(0)} 25% {transform:translateX(-10px)} 75% {transform:translateX(10px)} }
+    </style>
+</head>
+<body>
+
+<div class="left-container" id="game-main">
+    <div class="battle-view">
+        <div class="entity">
+            <span class="entity-icon" id="p-icon">🐰</span>
+            <div class="bar-label"><span>❤️ HP</span><span id="p-hp-txt">100</span></div>
+            <div class="bar-outer"><div id="p-hp-bar" class="bar-inner" style="background:var(--green)"></div></div>
+            <div class="bar-label"><span>🧬 EXP</span><span id="p-exp-txt">0</span></div>
+            <div class="bar-outer"><div id="p-exp-bar" class="bar-inner" style="background:var(--purple); width:0%"></div></div>
+        </div>
+        <div style="font-weight:900; color:#eee; font-size:1rem">VS</div>
+        <div class="entity">
+            <span class="entity-icon" id="m-icon">🐭</span>
+            <div class="bar-label"><span>😈 MONSTER</span><span id="m-hp-txt">100</span></div>
+            <div class="bar-outer"><div id="m-hp-bar" class="bar-inner" style="background:var(--pink)"></div></div>
+            <div style="font-size:0.6rem; color:#ccc; font-weight:bold">Lv.<span id="lv-num">1</span></div>
+        </div>
+        <div id="reward-modal">
+            <h2 style="color:#333">🌟 答對了！</h2>
+            <button class="reward-btn" style="background:var(--pink)" onclick="choose('atk')">⚔️ 發動攻擊</button>
+            <button class="reward-btn" style="background:var(--purple)" onclick="choose('exp')">🧬 吸收能量</button>
+        </div>
+    </div>
+
+    <div class="control-view">
+        <div class="skill-grid">
+            <div class="skill-btn" onclick="useSkill('hint', 30)"><b>📸 提示</b><span>30</span></div>
+            <div class="skill-btn" id="s-shield" onclick="useSkill('shield', 50)"><b>🛡️ 護盾</b><span>50</span></div>
+            <div class="skill-btn" id="s-double" onclick="useSkill('double', 40)"><b>🔥 雙倍</b><span>40</span></div>
+            <div class="skill-btn" style="border-color:#ffcc80" onclick="useSkill('heal', 45)"><b>🍜 拉麵</b><span>45</span></div>
+        </div>
+        <div class="quiz-container">
+            <div id="q-text">生成中...</div>
+            <div class="scaffold-box">
+                <button id="btn-scaffold" onclick="showScaffold()">💡 解題攻略</button>
+                <div id="scaffold-text"></div>
+            </div>
+            <div id="u-input">?</div>
+            <div id="hint-text"></div>
+        </div>
+        <div class="numpad">
+            <button class="key" onclick="tap(1)">1</button><button class="key" onclick="tap(2)">2</button><button class="key" onclick="tap(3)">3</button>
+            <button class="key" onclick="tap(4)">4</button><button class="key" onclick="tap(5)">5</button><button class="key" onclick="tap(6)">6</button>
+            <button class="key" onclick="tap(7)">7</button><button class="key" onclick="tap(8)">8</button><button class="key" onclick="tap(9)">9</button>
+            <button class="key" style="color:var(--pink)" onclick="clr()">C</button><button class="key" onclick="tap(0)">0</button>
+            <button class="key key-enter" onclick="check()">確認送出</button>
+        </div>
+    </div>
+</div>
+
+<div class="right-scratch">
+    <canvas id="scratch-pad"></canvas>
+    <button class="scratch-clear" onclick="clearScratch()">🧹 清除</button>
+</div>
+
+<script>
+    let pHP = 100, pEXP = 0, mHP = 100, lv = 1, currentAns = 0, inputStr = "";
+    let hasShield = false, hasDouble = false, currentHint = "";
+    let wrongCount = 0; 
+
+    const canvas = document.getElementById('scratch-pad');
+    const ctx = canvas.getContext('2d');
+    let drawing = false;
+
+    function init() {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+        ctx.strokeStyle = "rgba(69,90,100,0.8)"; ctx.lineWidth = 5; ctx.lineCap = "round";
+        generateTask();
+    }
+
+    function generateTask() {
+        const mode = Math.floor(Math.random() * 3);
+        let task = "", ans = 0, hint = "", scaffold = "";
+        
+        if (mode === 0) {
+            let e = Math.floor(Math.random() * 5) + 2, d = e * (Math.floor(Math.random() * 5) + 2);
+            let b = Math.floor(Math.random() * 12) + 3, c = Math.floor(Math.random() * 8) + 2;
+            let a = Math.floor(Math.random() * 80) + 10;
+            task = `${a} + (${b} × ${c} - ${d} ÷ ${e})`;
+            ans = a + (b * c - d / e);
+            scaffold = "🔍 括號內的乘除先算，最後加外面的數！";
+            hint = `💡 提示：括號內算完是 ${b*c - d/e}`;
+        } else if (mode === 1) {
+            let e = Math.floor(Math.random() * 3) + 2, mult = e * (Math.floor(Math.random() * 8) + 4);
+            let a = Math.floor(Math.random() * 50) + 40, b = Math.floor(Math.random() * 30) + 5;
+            task = `(${a} - ${b}) × ${mult} ÷ ${e}`;
+            ans = (a - b) * mult / e;
+            scaffold = "🔍 括號最優先算，算完後由左至右乘除！";
+            hint = `💡 提示：括號內的差是 ${a-b}`;
+        } else {
+            let d = Math.floor(Math.random() * 7) + 2, sub = d * (Math.floor(Math.random() * 6) + 2);
+            let c = Math.floor(Math.random() * 15) + 5, b = sub + c;
+            let a = Math.floor(Math.random() * 8) + 2, e = Math.floor(Math.random() * 30) + 5;
+            task = `${a} × (${b} - ${c}) ÷ ${d} + ${e}`;
+            ans = a * (b - c) / d + e;
+            scaffold = "🔍 先算括號，再由左至右乘除，最後加法！";
+            hint = `💡 提示：括號處理完的部分是 ${(b-c)/d}`;
+        }
+
+        currentAns = ans;
+        currentHint = hint;
+        document.getElementById('q-text').innerText = task;
+        document.getElementById('scaffold-text').innerText = scaffold;
+        document.getElementById('scaffold-text').style.display = "none";
+        document.getElementById('btn-scaffold').style.display = "inline-block";
+        inputStr = ""; 
+        document.getElementById('hint-text').innerText = "";
+        updateUI();
+    }
+
+    function showScaffold() {
+        document.getElementById('scaffold-text').style.display = "block";
+        document.getElementById('btn-scaffold').style.display = "none";
+    }
+
+    function updateUI() {
+        document.getElementById('u-input').innerText = inputStr || "?";
+        document.getElementById('p-hp-bar').style.width = pHP + "%";
+        document.getElementById('p-exp-bar').style.width = (pEXP % 100) + "%";
+        document.getElementById('p-hp-txt').innerText = pHP;
+        document.getElementById('p-exp-txt').innerText = pEXP;
+        document.getElementById('m-hp-bar').style.width = mHP + "%";
+        document.getElementById('lv-num').innerText = lv;
+        document.getElementById('s-shield').classList.toggle('active', hasShield);
+        document.getElementById('s-double').classList.toggle('active', hasDouble);
+        const icons = ["🐰", "🐰", "🦊", "⚔️", "👑"];
+        document.getElementById('p-icon').innerText = icons[Math.min(Math.floor(pEXP/100)+1, 4)];
+    }
+
+    function useSkill(type, cost) {
+        if(pEXP < cost) { document.getElementById('game-main').classList.add('shake'); setTimeout(()=>document.getElementById('game-main').classList.remove('shake'), 400); return; }
+        pEXP -= cost;
+        if(type==='hint') document.getElementById('hint-text').innerText = currentHint;
+        if(type==='shield') hasShield = true;
+        if(type==='double') hasDouble = true;
+        if(type==='heal') pHP = Math.min(100, pHP + 35);
+        updateUI();
+    }
+
+    function tap(n) { if(inputStr.length < 6) inputStr += n; updateUI(); }
+    function clr() { inputStr = ""; updateUI(); }
+
+    function check() {
+        if(parseInt(inputStr) === currentAns) {
+            wrongCount = 0; 
+            document.getElementById('reward-modal').style.display = 'flex';
+        } else {
+            wrongCount++;
+            if(hasShield) { alert("🛡️ 護盾幫你擋住了傷害！"); hasShield = false; }
+            else { pHP -= 20; document.getElementById('game-main').classList.add('shake'); }
+            if(wrongCount >= 2) {
+                pEXP += 20;
+                alert("🎁 沒關係，送你 20 EXP 獎勵你的努力！");
+                wrongCount = 0;
+            }
+            if(pHP <= 0) { alert("挑戰結束，重新開始！"); location.reload(); }
+            generateTask();
+        }
+        updateUI();
+    }
+
+    function choose(type) {
+        let m = hasDouble ? 2 : 1;
+        if(type === 'atk') { mHP -= (25 * m); if(mHP <= 0) { mHP = 100; lv++; alert("🎉 LEVEL UP!"); } }
+        else { pEXP += (25 * m); }
+        hasDouble = false;
+        document.getElementById('reward-modal').style.display = 'none';
+        clearScratch();
+        generateTask();
+    }
+
+    canvas.addEventListener('pointerdown', e => { drawing = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); });
+    canvas.addEventListener('pointermove', e => { if(drawing) { ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); } });
+    canvas.addEventListener('pointerup', () => drawing = false);
+    function clearScratch() { ctx.clearRect(0,0,canvas.width,canvas.height); }
+
+    window.onload = init;
+</script>
+</body>
+</html>
